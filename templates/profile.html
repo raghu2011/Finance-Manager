@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile Settings</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-light: #4895ef;
+            --secondary: #3f37c9;
+            --dark: #1a1a2e;
+            --light: #f8f9fa;
+            --success: #4cc9f0;
+            --warning: #f72585;
+            --danger: #ef233c;
+            --gray: #6c757d;
+            --gray-light: #e9ecef;
+            --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f5f7fb;
+            color: var(--dark);
+            display: flex;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+
+        /* Sidebar Styles */
+        .sidebar {
+            width: 280px;
+            background: white;
+            height: 100vh;
+            position: fixed;
+            box-shadow: var(--card-shadow);
+            padding: 20px 0;
+            transition: var(--transition);
+            z-index: 100;
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            padding: 0 20px 20px;
+            border-bottom: 1px solid var(--gray-light);
+        }
+
+        .sidebar-header img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+
+        .sidebar-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .sidebar-menu {
+            padding: 20px 0;
+        }
+
+        .menu-title {
+            padding: 0 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--gray);
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            margin: 5px 0;
+            cursor: pointer;
+            transition: var(--transition);
+            color: var(--gray);
+            text-decoration: none;
+        }
+
+        .menu-item:hover {
+            background-color: rgba(67, 97, 238, 0.1);
+            color: var(--primary);
+        }
+
+        .menu-item.active {
+            background-color: rgba(67, 97, 238, 0.1);
+            color: var(--primary);
+            border-left: 3px solid var(--primary);
+        }
+
+        .menu-item i {
+            margin-right: 10px;
+            font-size: 18px;
+        }
+
+        .menu-item span {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Main Content Styles */
+        .main-content {
+            flex: 1;
+            margin-left: 280px;
+            padding: 30px;
+            transition: var(--transition);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        /* Profile Section */
+        .profile-section {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 992px) {
+            .profile-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Profile Card */
+        .profile-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: var(--card-shadow);
+            text-align: center;
+            height: fit-content;
+            position: sticky;
+            top: 30px;
+        }
+
+        .profile-photo {
+            position: relative;
+            width: 150px;
+            height: 150px;
+            margin: 0 auto 20px;
+        }
+
+        .profile-photo img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 5px solid white;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .profile-photo-edit {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            width: 40px;
+            height: 40px;
+            background: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            cursor: pointer;
+            border: 3px solid white;
+            transition: var(--transition);
+        }
+
+        .profile-photo-edit:hover {
+            transform: scale(1.1);
+        }
+
+        .profile-name {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .profile-email {
+            color: var(--gray);
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .profile-stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 25px 0;
+            padding: 15px 0;
+            border-top: 1px solid var(--gray-light);
+            border-bottom: 1px solid var(--gray-light);
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--gray);
+        }
+
+        .profile-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .action-btn {
+            padding: 12px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .action-btn.primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .action-btn.primary:hover {
+            background: var(--secondary);
+        }
+
+        .action-btn.secondary {
+            background: var(--gray-light);
+            color: var(--dark);
+        }
+
+        .action-btn.secondary:hover {
+            background: #d3d9df;
+        }
+
+        .action-btn.danger {
+            background: rgba(239, 35, 60, 0.1);
+            color: var(--danger);
+        }
+
+        .action-btn.danger:hover {
+            background: rgba(239, 35, 60, 0.2);
+        }
+
+        /* Settings Card */
+        .settings-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: var(--card-shadow);
+        }
+
+        .settings-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--gray-light);
+            margin-bottom: 25px;
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            border: none;
+            background: none;
+            font-weight: 600;
+            color: var(--gray);
+            cursor: pointer;
+            position: relative;
+            transition: var(--transition);
+        }
+
+        .tab-btn.active {
+            color: var(--primary);
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: var(--primary);
+            border-radius: 3px 3px 0 0;
+        }
+
+        .settings-content {
+            display: none;
+        }
+
+        .settings-content.active {
+            display: block;
+        }
+
+        .settings-group {
+            margin-bottom: 30px;
+        }
+
+        .settings-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: var(--dark);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 1px solid var(--gray-light);
+            font-size: 14px;
+            transition: var(--transition);
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+
+        .input-with-icon {
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray);
+            cursor: pointer;
+        }
+
+        .save-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .save-btn:hover {
+            background: var(--secondary);
+        }
+
+        /* Privacy & Security */
+        .security-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid var(--gray-light);
+        }
+
+        .security-info h4 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .security-info p {
+            font-size: 13px;
+            color: var(--gray);
+        }
+
+        .security-action {
+            display: flex;
+            gap: 10px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: var(--primary);
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+
+        /* Danger Zone */
+        .danger-zone {
+            border: 1px solid rgba(239, 35, 60, 0.2);
+            border-radius: 8px;
+            padding: 20px;
+            background: rgba(239, 35, 60, 0.05);
+        }
+
+        .danger-title {
+            color: var(--danger);
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .danger-text {
+            font-size: 14px;
+            margin-bottom: 20px;
+            color: var(--gray);
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 500px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            animation: modalFadeIn 0.3s ease;
+        }
+
+        @keyframes modalFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--gray);
+        }
+
+        .modal-body {
+            margin-bottom: 25px;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+        }
+
+        /* Responsive Styles */
+        @media (max-width: 992px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .main-content {
+                margin-left: 0;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 20px 15px;
+            }
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="User">
+            <h3>{{ current_user.username}}</h3>
+        </div>
+        <div class="sidebar-menu">
+            <div class="menu-title">Menu</div>
+            <a href="/dashboard" class="menu-item">
+                <i class="fas fa-home"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="/income" class="menu-item">
+                <i class="fas fa-wallet"></i>
+                <span>Income</span>
+            </a>
+            <a href="/reports" class="menu-item">
+                <i class="fas fa-chart-pie"></i>
+                <span>Reports</span>
+            </a>
+            <a href="/savings" class="menu-item">
+                <i class="fas fa-piggy-bank"></i>
+                <span>Savings</span>
+            </a>
+            <a href="/transaction" class="menu-item">
+                <i class="fas fa-exchange-alt"></i>
+                <span>Transactions</span>
+            </a>
+            
+            <div class="menu-title">Settings</div>
+            <a href="/profile" class="menu-item active">
+                <i class="fas fa-user"></i>
+                <span>Profile</span>
+            </a>
+            <a href="/settings" class="menu-item">
+                <i class="fas fa-cog"></i>
+                <span>Settings</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Header -->
+        <div class="header">
+            <h1>Profile Settings</h1>
+        </div>
+
+        <!-- Profile Section -->
+        <div class="profile-section">
+            <!-- Profile Card -->
+            <div class="profile-card">
+                <div class="profile-photo">
+                    <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Profile Photo">
+                    <div class="profile-photo-edit" id="editPhotoBtn">
+                        <i class="fas fa-camera"></i>
+                    </div>
+                </div>
+                <h2 class="profile-name">{{ current_user.username}}</h2>
+                <p class="profile-email">{{ current_user.email}}</p>
+                
+                <div class="profile-stats">
+                    <div class="stat-item">
+                        <div class="stat-value">₹{{balance}}</div>
+                        <div class="stat-label">Balance</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">{{total_transactions}}</div>
+                        <div class="stat-label">Transactions</div>
+                    </div>
+                </div>
+                
+                <div class="profile-actions">
+                    <button class="action-btn primary">
+                        <i class="fas fa-share-alt"></i> Share Profile
+                    </button>
+                    <button class="action-btn secondary">
+                        <i class="fas fa-qrcode"></i> My QR Code
+                    </button>
+                </div>
+            </div>
+
+            <!-- Settings Card -->
+            <div class="settings-card">
+                <div class="settings-tabs">
+                    <button class="tab-btn active" data-tab="personal">Personal Info</button>
+                    <button class="tab-btn" data-tab="security">Security</button>
+                    <button class="tab-btn" data-tab="privacy">Privacy</button>
+                </div>
+
+                <!-- Personal Info Tab -->
+                <!-- Personal Info Tab -->
+            <div class="settings-content active" id="personal-tab">
+                <form id="profileForm">
+                    <div class="settings-group">
+                        <h3 class="settings-title">Basic Information</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">First Name</label>
+                                <input type="text" class="form-control" id="firstName" 
+                                    value="{{ profile_data.firstName }}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Last Name</label>
+                                <input type="text" class="form-control" id="lastName"
+                                    value="{{ profile_data.lastName }}">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" value="{{ current_user.email }}" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" id="phone"
+                                value="{{ profile_data.phone }}">
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <h3 class="settings-title">Address Information</h3>
+                        <div class="form-group">
+                            <label class="form-label">Street Address</label>
+                            <input type="text" class="form-control" id="street"
+                                value="{{ profile_data.street }}">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">City</label>
+                                <input type="text" class="form-control" id="city"
+                                    value="{{ profile_data.city }}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Zip Code</label>
+                                <input type="text" class="form-control" id="zipCode"
+                                    value="{{ profile_data.zipCode }}">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Country</label>
+                            <select class="form-control" id="country">
+                                <option value="United States" {% if profile_data.country == 'United States' %}selected{% endif %}>United States</option>
+                                <option value="Canada" {% if profile_data.country == 'Canada' %}selected{% endif %}>Canada</option>
+                                <option value="United Kingdom" {% if profile_data.country == 'United Kingdom' %}selected{% endif %}>United Kingdom</option>
+                                <option value="United Kingdom" {% if profile_data.country == 'India' %}selected{% endif %}>India</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="save-btn">Save Changes</button>
+                </form>
+            </div>
+
+                <!-- Security Tab -->
+                <div class="settings-content" id="security-tab">
+                    <div class="settings-group">
+                        <h3 class="settings-title">Password</h3>
+                        <form id="passwordChangeForm" method="POST">
+                            <div class="form-group">
+                                <label class="form-label">Current Password</label>
+                                <div class="input-with-icon">
+                                    <input type="password" class="form-control" 
+                                           name="current_password" 
+                                           placeholder="Enter current password"
+                                           id="currentPassword"  
+                                           required>
+                                    <i class="fas fa-eye input-icon toggle-password"></i>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">New Password</label>
+                                <div class="input-with-icon">
+                                    <input type="password" class="form-control" 
+                                           name="new_password"
+                                           id="newPassword"  
+                                           placeholder="Enter new password" 
+                                           required
+                                           minlength="8">
+                                    <i class="fas fa-eye input-icon toggle-password"></i>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Confirm New Password</label>
+                                <div class="input-with-icon">
+                                    <input type="password" class="form-control" 
+                                           name="confirm_password" 
+                                           id="confirmPassword" 
+                                           placeholder="Confirm new password" 
+                                           required
+                                           minlength="8">
+                                    <i class="fas fa-eye input-icon toggle-password"></i>
+                                </div>
+                            </div>
+                            <button type="submit" class="save-btn">Change Password</button>
+                            <div id="passwordMessage" class="message mt-2"></div>
+                        </form>
+                    </div>
+
+                    <div class="settings-group">
+                        <h3 class="settings-title">Two-Factor Authentication</h3>
+                        <div class="security-item">
+                            <div class="security-info">
+                                <h4>Email Verification</h4>
+                                <p>Receive a code via email when logging in</p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-info">
+                                <h4>SMS Verification</h4>
+                                <p>Receive a code via SMS when logging in</p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-info">
+                                <h4>Authenticator App</h4>
+                                <p>Use an authenticator app for 2FA</p>
+                            </div>
+                            <div class="security-action">
+                                <button class="action-btn secondary" style="padding: 8px 12px; font-size: 12px;">
+                                    Setup
+                                </button>
+                                <label class="toggle-switch">
+                                    <input type="checkbox">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <h3 class="settings-title">Recent Devices</h3>
+                        <div class="security-item">
+                            <div class="security-info">
+                                <h4>MacBook Pro (Chrome)</h4>
+                                <p>New York, USA • Just now</p>
+                            </div>
+                            <button class="action-btn danger" style="padding: 8px 12px; font-size: 12px;">
+                                Logout
+                            </button>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-info">
+                                <h4>iPhone 13 (Safari)</h4>
+                                <p>New York, USA • 2 hours ago</p>
+                            </div>
+                            <button class="action-btn danger" style="padding: 8px 12px; font-size: 12px;">
+                                Logout
+                            </button>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-info">
+                                <h4>Windows PC (Firefox)</h4>
+                                <p>Chicago, USA • 1 week ago</p>
+                            </div>
+                            <button class="action-btn danger" style="padding: 8px 12px; font-size: 12px;">
+                                Logout
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Privacy Tab -->
+                <div class="settings-content" id="privacy-tab">
+                    <div class="settings-group">
+                        <h3 class="settings-title">Privacy Settings</h3>
+                        <div class="security-item">
+                            <div class="security-info">
+                                <h4>Profile Visibility</h4>
+                                <p>Who can see your profile information</p>
+                            </div>
+                            <select class="form-control" style="width: auto; min-width: 120px;">
+                                <option>Public</option>
+                                <option>Friends Only</option>
+                                <option selected>Private</option>
+                            </select>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-info">
+                                <h4>Transaction History</h4>
+                                <p>Who can see your transaction history</p>
+                            </div>
+                            <select class="form-control" style="width: auto; min-width: 120px;">
+                                <option>Public</option>
+                                <option selected>Friends Only</option>
+                                <option>Private</option>
+                            </select>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-info">
+                                <h4>Data Sharing</h4>
+                                <p>Allow sharing of anonymized data for analytics</p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-info">
+                                <h4>Personalized Ads</h4>
+                                <p>Allow personalized advertising based on your activity</p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <h3 class="settings-title">Danger Zone</h3>
+                        <div class="danger-zone">
+                            <div class="danger-title">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <span>Warning</span>
+                            </div>
+                            <p class="danger-text">
+                                These actions are irreversible. Please proceed with caution.
+                            </p>
+                            <div class="form-group">
+                                <button class="action-btn danger" id="logoutBtn" style="width: 100%;">
+                                    <i class="fas fa-sign-out-alt"></i> Logout
+                                </button>
+                            </div>
+                            <div class="form-group">
+                                <button class="action-btn danger" id="deleteAccountBtn" style="width: 100%;">
+                                    <i class="fas fa-trash-alt"></i> Delete Account Permanently
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Photo Modal -->
+    <div class="modal" id="photoModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Update Profile Photo</h3>
+                <button class="modal-close" id="closePhotoModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="width: 150px; height: 150px; border-radius: 50%; overflow: hidden; margin: 0 auto 20px; border: 5px solid var(--gray-light);">
+                        <img id="photoPreview" src="https://randomuser.me/api/portraits/men/32.jpg" style="width: 100%; height: 100%; object-fit: cover;">
+                    </div>
+                    <input type="file" id="photoUpload" accept="image/*" style="display: none;">
+                    <button class="action-btn secondary" onclick="document.getElementById('photoUpload').click()" style="margin-right: 10px;">
+                        <i class="fas fa-upload"></i> Upload New Photo
+                    </button>
+                    <button class="action-btn danger">
+                        <i class="fas fa-trash-alt"></i> Remove Photo
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="action-btn secondary" id="cancelPhotoBtn">
+                    Cancel
+                </button>
+                <button class="action-btn primary">
+                    Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Account Modal -->
+    <div class="modal" id="deleteModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Delete Account</h3>
+                <button class="modal-close" id="closeDeleteModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 15px;">Are you sure you want to delete your account? This action cannot be undone.</p>
+                <div class="form-group">
+                    <label class="form-label">Enter your password to confirm</label>
+                    <div class="input-with-icon">
+                        <input type="password" class="form-control" placeholder="Your password" id="passwordConfirm">
+                        <i class="fas fa-eye input-icon toggle-password"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="action-btn secondary" id="cancelDeleteBtn">
+                    Cancel
+                </button>
+                <button class="action-btn danger " id="deletemyaccount">
+                    Delete My Account
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tab functionality
+        const tabButtons = document.querySelectorAll('.tab-btn');
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const tabId = button.getAttribute('data-tab');
+                
+                // Remove active class from all tabs and contents
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('.settings-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                
+                // Add active class to clicked tab and corresponding content
+                button.classList.add('active');
+                document.getElementById(`${tabId}-tab`).classList.add('active');
+            });
+        });
+
+        // Toggle password visibility
+        const togglePasswordIcons = document.querySelectorAll('.toggle-password');
+        togglePasswordIcons.forEach(icon => {
+            icon.addEventListener('click', (e) => {
+                const input = e.target.parentElement.querySelector('input');
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    e.target.classList.remove('fa-eye');
+                    e.target.classList.add('fa-eye-slash');
+                } else {
+                    input.type = 'password';
+                    e.target.classList.remove('fa-eye-slash');
+                    e.target.classList.add('fa-eye');
+                }
+            });
+        });
+
+        // Photo modal functionality
+        const editPhotoBtn = document.getElementById('editPhotoBtn');
+        const photoModal = document.getElementById('photoModal');
+        const closePhotoModal = document.getElementById('closePhotoModal');
+        const cancelPhotoBtn = document.getElementById('cancelPhotoBtn');
+        const photoUpload = document.getElementById('photoUpload');
+        const photoPreview = document.getElementById('photoPreview');
+
+        editPhotoBtn.addEventListener('click', () => {
+            photoModal.style.display = 'flex';
+        });
+
+        closePhotoModal.addEventListener('click', () => {
+            photoModal.style.display = 'none';
+        });
+
+        cancelPhotoBtn.addEventListener('click', () => {
+            photoModal.style.display = 'none';
+        });
+
+        photoUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    photoPreview.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Delete account modal functionality
+        const deleteAccountBtn = document.getElementById('deleteAccountBtn');
+        const deleteModal = document.getElementById('deleteModal');
+        const closeDeleteModal = document.getElementById('closeDeleteModal');
+        const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+
+        deleteAccountBtn.addEventListener('click', () => {
+            deleteModal.style.display = 'flex';
+        });
+
+        closeDeleteModal.addEventListener('click', () => {
+            deleteModal.style.display = 'none';
+        });
+
+        cancelDeleteBtn.addEventListener('click', () => {
+            deleteModal.style.display = 'none';
+        });
+
+        // Logout functionality
+        const logoutBtn = document.getElementById('logoutBtn');
+        logoutBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to logout from all devices?')) {
+                window.location.href = '/';
+            }
+        });
+
+        // Close modals when clicking outside
+        window.addEventListener('click', (e) => {
+            if (e.target === photoModal) {
+                photoModal.style.display = 'none';
+            }
+            if (e.target === deleteModal) {
+                deleteModal.style.display = 'none';
+            }
+        });
+        // Profile Form Submission
+        document.getElementById('profileForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = {
+                firstName: document.getElementById('firstName').value,
+                lastName: document.getElementById('lastName').value,
+                phone: document.getElementById('phone').value.trim(),
+                street: document.getElementById('street').value,
+                city: document.getElementById('city').value,
+                zipCode: document.getElementById('zipCode').value,
+                country: document.getElementById('country').value
+            };
+            if (!formData.firstName || !formData.phone || !formData.street || 
+                        !formData.city || !formData.zipCode||!formData.country) {
+                        alert('Please fill all required fields');
+                        return;
+                    }
+            const phoneRegex =/^[6-9]\d{9}$/;
+
+            if(!phoneRegex.test(formData.phone)){
+                alert('please enter valid phone number');
+                return;
+            }
+            try {
+                const response = await fetch('/profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+
+                if (response.ok) {
+                    alert('Profile updated successfully!');
+                    // Optionally refresh the page or update UI elements
+                    location.reload();
+                } else {
+                    alert('Error updating profile');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while saving');
+            }
+        });
+        document.getElementById('passwordChangeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = {
+                current_password: document.querySelector('[name="current_password"]').value,
+                new_password: document.querySelector('[name="new_password"]').value,
+                confirm_password: document.querySelector('[name="confirm_password"]').value
+            };
+
+            // Basic validation
+            if (!formData.current_password || !formData.new_password || !formData.confirm_password) {
+                alert('Please fill in all password fields');
+                return;
+            }
+
+            if (formData.new_password !== formData.confirm_password) {
+                alert('New passwords do not match!');
+                return;
+            }
+
+            // Optional password strength validation
+
+            try {
+                const response = await fetch('/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Password changed successfully!');
+                    document.getElementById('passwordChangeForm').reset();
+                } else {
+                    alert(`Error: ${result.message}`);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to change password. Please try again.');
+            }
+        });
+        document.getElementById('deletemyaccount').addEventListener('click', function(e) {
+            e.preventDefault();
+            const password = document.getElementById('passwordConfirm').value;
+
+            if (!password) {
+                alert('Please enter your password to confirm deletion');
+                return;
+            }
+
+            if (confirm('Are you absolutely sure? This will permanently erase all your data!')) {
+                fetch('/delete-account', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ password: password })
+                })
+                .then(response => {
+                    if (response.ok) {
+                        window.location.href = '/login';  // Redirect to login page
+                    } else {
+                        return response.json().then(err => { throw err; });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert(error.message || 'Account deletion failed. Please check your password.');
+                });
+            }
+        });
+    </script>
+</body>
+</html>

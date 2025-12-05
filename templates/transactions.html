@@ -1,0 +1,1633 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finance App - Transactions</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-light: #4895ef;
+            --secondary: #3f37c9;
+            --dark: #1a1a2e;
+            --light: #f8f9fa;
+            --success: #4cc9f0;
+            --warning: #f72585;
+            --danger: #ef233c;
+            --gray: #6c757d;
+            --gray-light: #e9ecef;
+            --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            --transition: all 0.3s ease;
+            
+            /* Transactions specific variables */
+            --income-color: #2ecc71;
+            --expense-color: #e74c3c;
+            --balance-color: #3498db;
+            --border-radius: 12px;
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f5f7fb;
+            color: var(--dark);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+        
+
+        /* Overlay for sidebar */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            z-index: 90;
+            display: none;
+            opacity: 0;
+            transition: var(--transition);
+        }
+
+        .overlay.active {
+            display: block;
+            opacity: 1;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            width: 280px;
+            background: white;
+            height: 100vh;
+            position: fixed;
+            box-shadow: var(--card-shadow);
+            padding: 20px 0;
+            transition: var(--transition);
+            z-index: 100;
+            left: 0;
+        }
+
+        /* Mobile sidebar */
+        @media (max-width: 992px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .sidebar.active {
+                transform: translateX(0);
+            }
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            padding: 0 20px 20px;
+            border-bottom: 1px solid var(--gray-light);
+        }
+
+        .sidebar-header img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+
+        .sidebar-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .sidebar-menu {
+            padding: 20px 0;
+        }
+
+        .menu-title {
+            padding: 0 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--gray);
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            margin: 5px 0;
+            cursor: pointer;
+            transition: var(--transition);
+            color: var(--gray);
+            text-decoration: none;
+        }
+
+        .menu-item:hover {
+            background-color: rgba(67, 97, 238, 0.1);
+            color: var(--primary);
+        }
+
+        .menu-item.active {
+            background-color: rgba(67, 97, 238, 0.1);
+            color: var(--primary);
+            border-left: 3px solid var(--primary);
+        }
+
+        .menu-item i {
+            margin-right: 10px;
+            font-size: 18px;
+        }
+
+        .menu-item span {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Main Content Styles */
+        .main-content {
+            margin-left: 280px;
+            padding: 30px;
+            transition: var(--transition);
+        }
+
+        @media (max-width: 992px) {
+            .main-content {
+                margin-left: 0;
+            }
+        }
+
+        /* Mobile menu toggle */
+        .menu-toggle {
+            display: none;
+            background: var(--primary);
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            margin-right: 15px;
+        }
+
+        @media (max-width: 992px) {
+            .menu-toggle {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .search-bar {
+            position: relative;
+        }
+
+        .search-bar input {
+            padding: 10px 15px 10px 40px;
+            border-radius: 8px;
+            border: 1px solid var(--gray-light);
+            width: 250px;
+            font-size: 14px;
+            transition: var(--transition);
+        }
+
+        .search-bar input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+
+        .search-bar i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray);
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-profile img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .user-info h4 {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .user-info p {
+            font-size: 12px;
+            color: var(--gray);
+        }
+
+        .theme-toggle {
+            background: var(--gray-light);
+            border-radius: 20px;
+            padding: 5px;
+            display: flex;
+            cursor: pointer;
+        }
+
+        .theme-toggle span {
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 14px;
+        }
+
+        .theme-toggle .light {
+            background: white;
+            color: var(--primary);
+        }
+
+        /* Transactions Page Specific Styles */
+        .container {
+            max-width: 100%;
+            padding: 0;
+        }
+
+        /* Stats Cards */
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background-color: white;
+            border-radius: var(--border-radius);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .stat-card.income {
+            border-left: 4px solid var(--income-color);
+        }
+
+        .stat-card.expense {
+            border-left: 4px solid var(--expense-color);
+        }
+
+        .stat-card.balance {
+            border-left: 4px solid var(--balance-color);
+        }
+
+        .stat-card .stat-title {
+            font-size: 14px;
+            color: var(--gray);
+            margin-bottom: 10px;
+        }
+
+        .stat-card .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .stat-change {
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+
+        /* Charts Section */
+        .charts-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .charts-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .chart-card {
+            background-color: white;
+            border-radius: var(--border-radius);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .chart-card h3 {
+            margin-bottom: 15px;
+            font-size: 18px;
+            color: var(--dark);
+        }
+
+        .chart-placeholder {
+            position: relative;
+            height: 250px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            color: #6c757d;
+        }
+
+        .chart-placeholder i {
+            opacity: 0.3;
+        }
+
+        .no-data, .error-message {
+            text-align: center;
+            padding: 20px;
+            color: #6c757d;
+        }
+
+        .error-message {
+            color: #e74c3c;
+        }
+
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* Filter Section */
+        .filter-section {
+            background-color: white;
+            border-radius: var(--border-radius);
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .filter-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .filter-header h3 {
+            font-size: 18px;
+            color: var(--dark);
+        }
+
+        .filter-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .filter-group {
+            margin-bottom: 10px;
+        }
+
+        .filter-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: var(--gray);
+            font-weight: 500;
+        }
+
+        .filter-group select, 
+        .filter-group input {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: var(--transition);
+        }
+
+        .filter-group select:focus, 
+        .filter-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(67, 97, 238, 0.2);
+        }
+
+        .date-range-picker {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Transactions Table */
+        .transactions-container {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+        }
+
+        .transactions-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .transactions-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .transactions-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .transactions-table thead th {
+            padding: 15px 20px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--gray);
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .transactions-table tbody tr {
+            border-bottom: 1px solid #f0f0f0;
+            transition: var(--transition);
+        }
+
+        .transactions-table tbody tr:last-child {
+            border-bottom: none;
+        }
+
+        .transactions-table tbody tr:hover {
+            background-color: #f8fafd;
+        }
+
+        .transactions-table td {
+            padding: 15px 20px;
+            vertical-align: middle;
+        }
+
+        .transaction-category {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .category-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .category-icon.food {
+            background-color: #ff7675;
+        }
+
+        .category-icon.shopping {
+            background-color: #74b9ff;
+        }
+
+        .category-icon.transport {
+            background-color: #55efc4;
+        }
+
+        .category-icon.entertainment {
+            background-color: #a29bfe;
+        }
+
+        .category-icon.bills {
+            background-color: #ffeaa7;
+            color: var(--dark);
+        }
+
+        .category-icon.income {
+            background-color: var(--income-color);
+        }
+
+        .transaction-amount {
+            font-weight: 600;
+        }
+
+        .transaction-amount.income {
+            color: var(--success);
+        }
+
+        .transaction-amount.expense {
+            color: var(--danger);
+        }
+
+        .payment-method {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .payment-method-icon {
+            color: var(--gray);
+        }
+
+        .transaction-status {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-completed {
+            background-color: #d5f5e3;
+            color: #28a745;
+        }
+
+        .status-pending {
+            background-color: #fff3cd;
+            color: #d39e00;
+        }
+
+        .status-failed {
+            background-color: #f8d7da;
+            color: #dc3545;
+        }
+
+        .transaction-actions {
+            display: flex;
+            gap: 10px;
+            opacity: 0;
+            transition: var(--transition);
+        }
+
+        .transactions-table tbody tr:hover .transaction-actions {
+            opacity: 1;
+        }
+
+        .action-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f0f0f0;
+            color: var(--gray);
+            cursor: pointer;
+            transition: var(--transition);
+            border: none;
+        }
+
+        .action-btn:hover {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        .pagination-info {
+            font-size: 14px;
+            color: var(--gray);
+        }
+
+        .pagination-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .pagination-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: white;
+            border: 1px solid #e0e0e0;
+            color: var(--gray);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .pagination-btn:hover {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .pagination-btn.active {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .pagination-btn.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Floating Action Button */
+        .fab {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 4px 20px rgba(67, 97, 238, 0.3);
+            cursor: pointer;
+            transition: var(--transition);
+            z-index: 100;
+            border: none;
+        }
+
+        .fab:hover {
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 8px 25px rgba(67, 97, 238, 0.4);
+        }
+
+        /* Modal Styles */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: var(--transition);
+        }
+
+        .modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background-color: white;
+            border-radius: var(--border-radius);
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-20px);
+            transition: var(--transition);
+        }
+
+        .modal.active .modal-content {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--gray-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            font-size: 20px;
+            color: var(--dark);
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--gray);
+            transition: var(--transition);
+        }
+
+        .close-modal:hover {
+            color: var(--dark);
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: var(--gray);
+            font-weight: 500;
+        }
+
+        .form-group select,
+        .form-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid var(--gray-light);
+            border-radius: 8px;
+            font-size: 14px;
+            transition: var(--transition);
+        }
+
+        .form-group select:focus,
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            margin-top: 10px;
+        }
+
+        .btn-submit:hover {
+            background-color: var(--secondary);
+        }
+        /* Income Categories */
+        .income.category-salary::before {
+        content: "💼 ";
+        }
+        .income.category-bonus::before {
+        content: "💰 ";
+        }
+        .income.category-investment::before {
+        content: "📈 ";
+        }
+        .income.category-gift::before {
+        content: "🎁 ";
+        }
+        .income.category-other_income::before {
+        content: "➕ ";
+        }
+
+        /* Expense Categories */
+        .expense.category-food::before {
+        content: "🍔 ";
+        }
+        .expense.category-travel::before {
+        content: "✈️ ";
+        }
+        .expense.category-utilities::before {
+        content: "💡 ";
+        }
+        .expense.category-entertainment::before {
+        content: "🎬 ";
+        }
+        .expense.category-health::before {
+        content: "🏥 ";
+        }
+        .expense.category-education::before {
+        content: "📚 ";
+        }
+        .expense.category-others::before {
+        content: "📦 ";
+        }
+
+        /* Transfer Categories */
+        .transfer.category-bank_transfer::before {
+        content: "🏦 ";
+        }
+        .transfer.category-wallet_transfer::before {
+        content: "👛 ";
+        }
+        .transfer.category-cash_transfer::before {
+        content: "💵 ";
+        }
+       
+
+        /* Base Styles for Symbols */
+        td[class*="category-"]::before {
+        margin-right: 0.5em;
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 
+                    'Noto Color Emoji', 'Android Emoji', 
+                    'EmojiSymbols', sans-serif;
+        }
+
+        /* Optional: Add alignment for the category column */
+        #transactions-table td:nth-child(2) {
+        display: flex;
+        align-items: center;
+        }
+
+        /* Responsive Adjustments */
+        @media (max-width: 992px) {
+            .transactions-table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .header-actions {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .search-bar {
+                width: 100%;
+            }
+
+            .filter-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .main-content {
+                padding: 20px 15px;
+            }
+            
+            .modal-content {
+                width: 95%;
+                margin: 0 auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Overlay -->
+    <div class="overlay"></div>
+
+    <!-- Sidebar Navigation -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="User">
+            <h3>{{ current_user.username}}</h3>
+        </div>
+        <div class="sidebar-menu">
+            <div class="menu-title">Menu</div>
+            <a href="/dashboard" class="menu-item">
+                <i class="fas fa-home"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="/income" class="menu-item">
+                <i class="fas fa-wallet"></i>
+                <span>Income</span>
+            </a>
+            <a href="/reports" class="menu-item">
+                <i class="fas fa-chart-pie"></i>
+                <span>Reports</span>
+            </a>
+            <a href="/savings" class="menu-item">
+                <i class="fas fa-piggy-bank"></i>
+                <span>Savings</span>
+            </a>
+            <a href="/transaction" class="menu-item active">
+                <i class="fas fa-exchange-alt"></i>
+                <span>Transactions</span>
+            </a>
+            
+            <div class="menu-title">Settings</div>
+            <a href="/profile" class="menu-item">
+                <i class="fas fa-user"></i>
+                <span>Profile</span>
+            </a>
+            <a href="/settings" class="menu-item">
+                <i class="fas fa-cog"></i>
+                <span>Settings</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Header -->
+        <div class="header">
+            <div style="display: flex; align-items: center;">
+                <button class="menu-toggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1>Transactions</h1>
+            </div>
+            <div class="header-actions">
+                <div class="search-bar">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Search...">
+                </div>
+                <div class="theme-toggle">
+                    <span class="light"><i class="fas fa-sun"></i></span>
+                    <span class="dark"><i class="fas fa-moon"></i></span>
+                </div>
+                <div class="user-profile">
+                    <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="User">
+                    <div class="user-info">
+                        <h4>{{ current_user.username}}</h4>
+                        <p>Premium Member</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transactions Content -->
+        <div class="container">
+            <!-- Stats Cards -->
+            <div class="stats-container">
+                <div class="stat-card income">
+                    <div class="stat-title">Total Income</div>
+                    <div class="stat-value">₹{{total_income}}</div>
+                </div>
+                <div class="stat-card expense">
+                    <div class="stat-title">Total Expenses</div>
+                    <div class="stat-value">₹{{total_expenses }}</div>
+                </div>
+                <div class="stat-card balance">
+                    <div class="stat-title">Net Balance</div>
+                    <div class="stat-value">₹{{net_balance}}</div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="charts-container">
+                <div class="chart-card">
+                    <h3>Spending by Category</h3>
+                    <div class="chart-placeholder">
+                        <i class="fas fa-chart-pie fa-3x"></i>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>Monthly Trends</h3>
+                    <div class="chart-placeholder">
+                        <i class="fas fa-chart-bar fa-3x"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter Section -->
+            <div class="filter-section">
+                <div class="filter-header">
+                    <h3>Filter Transactions</h3>
+                    <div class="filter-actions">
+                        <button class="btn btn-outline" id="apply-filters">
+                            <i class="fas fa-filter"></i> Apply Filters
+                        </button>
+                        <button class="btn btn-outline" id="reset-filters">
+                            <i class="fas fa-redo"></i> Reset
+                        </button>
+                    </div>
+                </div>
+                <div class="filter-grid">
+                    <div class="filter-group">
+                        <label for="transaction-type">Transaction Type</label>
+                        <select id="transaction-type">
+                            <option value="">All Types</option>
+                            <option value="income">Income</option>
+                            <option value="expense">Expense</option>
+                            <option value="transfer">Transfer</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="category">Category</label>
+                        <select id="category">
+                            <option value="">All Categories</option>
+                            <!-- Will be populated by JavaScript -->
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="payment-method">Payment Method</label>
+                        <select id="payment-method">
+                            <option value="">All Methods</option>
+                            <!-- Will be populated by JavaScript -->
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="date-range">Date Range</label>
+                        <div class="date-range-picker">
+                            <input type="date" id="start-date" placeholder="Start Date">
+                            <input type="date" id="end-date" placeholder="End Date">
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <label for="amount-range">Amount Range</label>
+                        <div class="date-range-picker">
+                            <input type="number" id="min-amount" placeholder="Min">
+                            <input type="number" id="max-amount" placeholder="Max">
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <label for="status">Status</label>
+                        <select id="status">
+                            <option value="">All Statuses</option>
+                            <option value="completed">Completed</option>
+                            <option value="pending">Pending</option>
+                            <option value="failed">Failed</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transactions Table -->
+            <div class="transactions-container">
+                <div class="transactions-header">
+                    <div class="transactions-title">Recent Transactions</div>
+                    <div class="search-bar">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="search-transactions" placeholder="Search transactions...">
+                    </div>
+                </div>
+                <table class="transactions-table" id="transactions-table">
+                    <thead>
+                        <tr>
+                            <th>Date & Time</th>
+                            <th>Category</th>
+                            <th>Description</th>
+                            <th>Amount</th>
+                            <th>Payment Method</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for transaction in transactions %}
+                            <tr>
+                                <td>{{ transaction.date }}</td>
+                                <td class="{{transaction.type}} category-{{transaction.category}}">
+                                    {{ transaction.category }}
+                                  </td>
+                                <td>{{ transaction.description }}</td>
+                                <td>
+                                    ₹{{ "%.2f"|format(transaction.amount) }}
+                                </td>
+                                <td>{{ transaction.payment_method }}</td>
+                                <td>
+                                    <span class="status-badge {{ transaction.status|lower }}">
+                                        {{ transaction.status }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="actions">
+                                        <div class="action-btn delete-btn" data-id="{{ transaction.id }}">
+                                            <i class="fas fa-trash"></i>
+                                        </div>
+                                    </div>
+                                    
+                                </td>
+                            </tr>
+                            {% endfor %}
+                    </tbody>
+                </table>
+                
+            </div>
+        </div>
+    </div>
+
+              <!-- Transaction Modal -->
+<div class="modal" id="transaction-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-title">Add Transaction</h3>
+            <button class="close-modal" id="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="transaction-form">
+                <input type="hidden" id="transaction-id" name="transaction-id">
+                
+                <div class="form-group">
+                    <label for="type">Type</label>
+                    <select id="type" name="type" required>
+                        <option value="">Select Type</option>
+                        <option value="income">Income</option>
+                        <option value="expense">Expense</option>
+                        <option value="transfer">Transfer</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="amount">Amount</label>
+                    <input type="number" id="amount" name="amount" step="0.01" min="0" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <input type="text" id="description" name="description">
+                </div>
+
+                <div class="form-group">
+                    <label for="date">Date</label>
+                    <input type="date" id="date" name="date" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="categoryId">Category</label>
+                    <select id="categoryId" name="categoryId">
+                        <option value="">Select Category</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="methodId">Payment Method</label>
+                    <select id="methodId" name="methodId">
+                        <option value="">Select Payment Method</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="status">Status</label>
+                    <select id="status" name="status">
+                        <option value="completed">Completed</option>
+                        <option value="pending">Pending</option>
+                        <option value="failed">Failed</option>
+                    </select>
+                </div>
+
+                <button  type="submit" class="btn-submit" id="save-Transaction">Save Transaction</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+    <!-- Floating Action Button -->
+    <button class="fab" id="add-transaction">
+        <i class="fas fa-plus"></i>
+    </button>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Global chart variables
+        let categoryChart = null;
+        let trendsChart = null;
+        const addTransactionBtn = document.getElementById('add-transaction');
+        const modal = document.getElementById('transaction-modal');
+        const closeModalBtn = document.getElementById('close-modal');
+        const overlay = document.querySelector('.overlay');
+        const typeSelect = document.getElementById('type');
+        const categorySelect = document.getElementById('categoryId');
+        const methodSelect = document.getElementById('methodId');
+    
+        // Modal handling
+        addTransactionBtn.addEventListener('click', () => {
+            modal.classList.add('active');
+            overlay.classList.add('active');
+            resetForm();
+        });
+    
+        function closeModal() {
+            modal.classList.remove('active');
+            overlay.classList.remove('active');
+        }
+    
+        closeModalBtn.addEventListener('click', closeModal);
+        overlay.addEventListener('click', closeModal);
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+    
+        function resetForm() {
+            document.getElementById('transaction-form').reset();
+            typeSelect.value = '';
+            categorySelect.innerHTML = '<option value="">Select Category</option>';
+            methodSelect.innerHTML = '<option value="">Select Payment Method</option>';
+        }
+    
+        // Static options data
+        const categoryOptions = {
+            income: [
+                { value: 'salary', text: 'Salary' },
+                { value: 'bonus', text: 'Bonus' },
+                { value: 'investment', text: 'Investment' },
+                { value: 'gift', text: 'Gift' },
+                { value: 'other_income', text: 'Other Income' }
+            ],
+            expense: [
+                { value: 'food', text: 'Food' },
+                { value: 'travel', text: 'Travel' },
+                { value: 'utilities', text: 'Utilities' },
+                { value: 'entertainment', text: 'Entertainment' },
+                { value: 'health', text: 'Health' },
+                { value: 'education', text: 'Education' },
+                { value: 'others', text: 'Others' }
+            ],
+            transfer: [
+                { value: 'bank_transfer', text: 'Bank Transfer' },
+                { value: 'wallet_transfer', text: 'Wallet Transfer' },
+                { value: 'cash_transfer', text: 'Cash Transfer' }
+            ]
+        };
+    
+        const paymentOptions = {
+            income: [
+                { value: 'bank', text: 'Bank Deposit' },
+                { value: 'cheque', text: 'Cheque' },
+                { value: 'cash', text: 'Cash' },
+                { value: 'other', text: 'Other' }
+            ],
+            expense: [
+                { value: 'cash', text: 'Cash' },
+                { value: 'credit_card', text: 'Credit Card' },
+                { value: 'debit_card', text: 'Debit Card' },
+                { value: 'net_banking', text: 'Net Banking' },
+                { value: 'upi', text: 'UPI' },
+                { value: 'wallet', text: 'Digital Wallet' },
+                { value: 'other', text: 'Other' }
+            ],
+            transfer: [
+                { value: 'bank', text: 'Bank Account' },
+                { value: 'wallet', text: 'Wallet' },
+                { value: 'cash', text: 'Cash' }
+            ]
+        };
+    
+        function populateSelect(selectElement, options) {
+            selectElement.innerHTML = '<option value="">Select Option</option>';
+            options.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt.value;
+                option.textContent = opt.text;
+                selectElement.appendChild(option);
+            });
+        }
+    
+        // Handle type selection changes
+        typeSelect.addEventListener('change', () => {
+            const selectedType = typeSelect.value;
+            populateSelect(categorySelect, categoryOptions[selectedType] || []);
+            populateSelect(methodSelect, paymentOptions[selectedType] || []);
+        });
+    
+        // Form submission
+        document.getElementById('transaction-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = {
+                amount: parseFloat(document.getElementById('amount').value),
+                type: typeSelect.value,
+                description: document.getElementById('description').value,
+                date: document.getElementById('date').value,
+                category: categorySelect.value,
+                payment_method: methodSelect.value,
+                status: 'completed'
+            };
+            
+    
+            // Validation
+            if (!formData.amount || !formData.type || !formData.date || 
+                !formData.category || !formData.payment_method) {
+                alert('Please fill all required fields');
+                return;
+            }
+            if(typeSelect.value=='income'){
+                const formData2 = {
+                        source:  categorySelect.value,
+                        amount: parseFloat(document.getElementById('amount').value),
+                        date:  document.getElementById('date').value,
+                        payment_method: methodSelect.value,
+                    };
+
+                    fetch('/api/income/add', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData2)
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.message === 'Income added successfully') {
+                            window.location.reload();
+                        } else {
+                            alert('Error: ' + data.message);
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+                }
+            try {
+                fetch('/api/transactions')
+                    .then(response => {
+                        if (!response.ok) {
+                        throw new Error("Server error or unauthorized access");
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        // handle data
+                    })
+                    .catch(err => {
+                        console.error("Fetch error:", err.message);
+                    });
+                const response = await fetch('/api/transactions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData),
+                    credentials: 'include'
+                });
+    
+                const result = await response.json();
+                
+                if (!response.ok) throw new Error(result.message || 'Transaction failed');
+    
+                alert('Transaction added successfully');
+                closeModal();
+                window.location.reload();
+            } catch (error) {
+                console.error('Error:', error);
+                alert(error.message || 'Error creating transaction');
+            }
+        });
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.delete-btn')) {
+                const transactionId = e.target.closest('.delete-btn').dataset.id;
+                if (confirm('Are you sure you want to delete this transaction?')) {
+                    fetch(`/transactions/${transactionId}`, { method: 'DELETE' })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.message === 'transaction deleted successfully') {
+                            window.location.reload();
+                        } else {
+                            alert('Error: ' + data.message);
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+                }
+            }
+        });
+
+        document.querySelectorAll('.export-chart').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const chartType = this.dataset.chart;
+                const chart = chartType === 'category' ? categoryChart : trendsChart;
+                const link = document.createElement('a');
+                link.href = chart.toBase64Image();
+                link.download = `${chartType}-chart.png`;
+                link.click();
+            });
+        });
+        
+           // Colors for charts
+           const categoryColors = [
+            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', 
+            '#9966FF', '#FF9F40', '#8AC24A', '#F06292'
+        ];
+        
+        // Initialize charts when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSpendingByCategory();
+            loadMonthlyTrends();
+        });
+        
+        // Spending by Category Pie Chart
+        async function loadSpendingByCategory() {
+    try {
+        const response = await fetch('/api/transactions/spending-by-category');
+        const result = await response.json();
+        
+        console.log('Spending by category data:', result); // Debug log
+        
+        if (!result.success || !result.data || result.data.length === 0) {
+            console.log('No spending data available');
+            document.querySelector('.chart-card:nth-child(1) .chart-placeholder').innerHTML = 
+                '<p class="no-data">No spending data available</p>';
+            return;
+        }
+        
+        const data = result.data;
+        const ctx = document.createElement('canvas');
+        const container = document.querySelector('.chart-card:nth-child(1) .chart-placeholder');
+        container.innerHTML = '';
+        container.appendChild(ctx);
+        
+        // Destroy previous chart if exists
+        if (categoryChart) {
+            categoryChart.destroy();
+        }
+        
+        // Updated colors with blue for income-related categories
+        const categoryColors = [
+            '#4361ee', // Blue for primary income
+            '#4895ef', // Lighter blue
+            '#4cc9f0', // Teal
+            '#3a0ca3', // Dark blue
+            '#7209b7', // Purple
+            '#f72585', // Pink for contrast
+            '#b5179e'  // Magenta
+        ];
+        
+        categoryChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: data.map(item => item.category),
+                datasets: [{
+                    data: data.map(item => item.amount),
+                    backgroundColor: categoryColors.slice(0, data.length),
+                    borderWidth: 1,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.raw || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = Math.round((value / total) * 100);
+                                return `${label}: ₹${value.toFixed(2)} (${percentage}%)`;
+                            }
+                        }
+                    }
+                },
+                cutout: '70%',
+                animation: {
+                    animateScale: true,
+                    animateRotate: true
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error loading spending by category:', error);
+        document.querySelector('.chart-card:nth-child(1) .chart-placeholder').innerHTML = 
+            '<p class="error-message">Failed to load spending data</p>';
+    }
+}
+        
+        // Monthly Trends Line Chart
+        async function loadMonthlyTrends() {
+            try {
+                const response = await fetch('/api/transactions/monthly-trends');
+                const result = await response.json();
+                
+                console.log('Monthly trends data:', result); // Debug log
+                
+                if (!result.success || !result.data || result.data.length === 0) {
+                    console.log('No trends data available');
+                    document.querySelector('.chart-placeholder:nth-child(2)').innerHTML = 
+                        '<p class="no-data">No trends data available</p>';
+                    return;
+                }
+                
+                const data = result.data;
+                const ctx = document.createElement('canvas');
+                const container = document.querySelector('.chart-card:nth-child(2) .chart-placeholder');
+                container.innerHTML = '';
+                container.appendChild(ctx);
+                
+                // Destroy previous chart if exists
+                if (trendsChart) {
+                    trendsChart.destroy();
+                }
+                
+                trendsChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.map(item => item.month),
+                        datasets: [
+                            {
+                                label: 'Income',
+                                data: data.map(item => item.income),
+                                borderColor: '#4361ee', // Using your primary color
+                                backgroundColor: 'rgba(67, 97, 238, 0.1)',
+                                borderWidth: 2,
+                                tension: 0.3,
+                                fill: true
+                            },
+                            {
+                                label: 'Expenses',
+                                data: data.map(item => item.expense),
+                                borderColor: '#f72585', // Using your warning color
+                                backgroundColor: 'rgba(247, 37, 133, 0.1)',
+                                borderWidth: 2,
+                                tension: 0.3,
+                                fill: true
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    usePointStyle: true,
+                                    padding: 20
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `${context.dataset.label}: ₹${context.raw.toFixed(2)}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return '₹' + value;
+                                    }
+                                },
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.05)'
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading monthly trends:', error);
+                document.querySelector('.chart-card:nth-child(2) .chart-placeholder').innerHTML = 
+                    '<p class="error-message">Failed to load trends data</p>';
+            }
+        }
+
+    </script>
+    
+</body>
+</html>
