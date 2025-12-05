@@ -45,7 +45,7 @@ login_manager.login_view = 'login'  # Ensures redirects to the 'login' route
 def unauthorized():
     return jsonify({'success': False, 'message': 'Unauthorized'}), 401
 # Database configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:Taruni%4097@127.0.0.1:3306/financeManager'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:Your_password@127.0.0.1:Your_port/Your_databse_name'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.secret_key = 'your-secret-key-here'  # Change this to a strong random key in production
 
