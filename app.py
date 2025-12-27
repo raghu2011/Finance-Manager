@@ -45,7 +45,7 @@ login_manager.login_view = 'login'  # Ensures redirects to the 'login' route
 def unauthorized():
     return jsonify({'success': False, 'message': 'Unauthorized'}), 401
 # Database configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:Your_password@127.0.0.1:Your_port/Your_databse_name'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:Taruni%4097@127.0.0.1:3306/financeManager'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.secret_key = 'your-secret-key-here'  # Change this to a strong random key in production
 
@@ -132,6 +132,68 @@ class SavingTransaction(db.Model):
     user = db.relationship('User', backref='saving_transactions')
     # The backref='goal' is defined in Savings_Goals model
 
+class Group(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    group_code = db.Column(db.String(8), unique=True, nullable=False)
+    currency = db.Column(db.String(3), default='INR')
+    group_type = db.Column(db.String(20), default='friends')
+    is_private = db.Column(db.Boolean, default=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.userId', ondelete='CASCADE'), nullable=False)  # Changed
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    members = db.relationship('GroupMember', backref='group', lazy=True, cascade='all, delete-orphan')
+    transactions = db.relationship('GroupTransaction', backref='group', lazy=True, cascade='all, delete-orphan')
+    join_requests = db.relationship('JoinRequest', backref='group', lazy=True, cascade='all, delete-orphan')
+    creator = db.relationship('User', backref='created_groups', foreign_keys=[created_by])  # Added
+
+class GroupMember(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.userId', ondelete='CASCADE'), nullable=False)
+    role = db.Column(db.String(20), default='member')  # 'admin' or 'member'
+    joined_at = db.Column(db.DateTime, default=datetime.utcnow)
+    balance = db.Column(db.Float, default=0.0)
+    
+    # Relationships
+    user = db.relationship('User', backref='group_memberships')
+
+class JoinRequest(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.userId', ondelete='CASCADE'), nullable=False)
+    message = db.Column(db.Text)
+    status = db.Column(db.String(20), default='pending')  # 'pending', 'accepted', 'rejected'
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user = db.relationship('User', backref='join_requests')
+
+class GroupTransaction(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id', ondelete='CASCADE'), nullable=False)
+    paid_by = db.Column(db.Integer, db.ForeignKey('users.userId', ondelete='CASCADE'), nullable=False)
+    description = db.Column(db.String(200), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    category = db.Column(db.String(50), default='other')
+    split_type = db.Column(db.String(20), default='equal')  # 'equal', 'percentage', 'custom'
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    payer = db.relationship('User', backref='group_transactions')
+
+class TransactionSplit(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    transaction_id = db.Column(db.Integer, db.ForeignKey('group_transaction.id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.userId', ondelete='CASCADE'), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    settled = db.Column(db.Boolean, default=False)
+    
+    # Relationships
+    user = db.relationship('User', backref='transaction_splits')
+    transaction = db.relationship('GroupTransaction', backref='splits')
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -390,6 +452,7 @@ def handle_logout():
     """Handles user logout"""
     logout_user()
     return jsonify({'message': 'Logout successful'}), 200
+
 
 @app.route('/api/income/sources')
 @login_required
@@ -1563,6 +1626,920 @@ def get_categories():
 def get_payment_methods():
     return jsonify([]) 
 
+# Create groups blueprint
+groups_bp = Blueprint('groups', __name__)
+
+# Add group helper functions
+def generate_group_code():
+    import random
+    import string
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+
+def calculate_group_balance(group_id):
+    """Calculate total balance of a group"""
+    total = db.session.query(db.func.sum(GroupTransaction.amount))\
+        .filter_by(group_id=group_id).scalar() or 0
+    return total
+
+def calculate_member_balances(group_id):
+    """Calculate individual member balances"""
+    members = GroupMember.query.filter_by(group_id=group_id).all()
+    balances = {}
+    
+    for member in members:
+        balances[member.user_id] = get_user_balance(group_id,member.user_id)
+    
+    return balances
+def get_user_balance(group_id, user_id):
+    member = GroupMember.query.filter_by(
+        group_id=group_id,
+        user_id=user_id
+    ).first()
+
+    if not member:
+        return 0.0
+
+    splits = (
+        db.session.query(TransactionSplit, GroupTransaction)
+        .join(GroupTransaction, TransactionSplit.transaction_id == GroupTransaction.id)
+        .filter(
+            GroupTransaction.group_id == group_id,
+            TransactionSplit.user_id == user_id,
+            TransactionSplit.settled == False,
+            GroupTransaction.created_at >= member.joined_at
+        )
+        .all()
+    )
+
+    balance = 0.0
+
+    for split, transaction in splits:
+        if transaction.paid_by == user_id:
+            balance += split.amount
+        else:
+            balance -= split.amount
+
+    return round(balance, 2)
+
+
+@groups_bp.route('/groups', methods=['GET'])
+@login_required
+def groups_page():
+    """Render the groups page"""
+    try:
+        groups_data = []
+        
+        # 1. Get user's groups from GroupMember table (already accepted members)
+        group_memberships = GroupMember.query.filter_by(user_id=current_user.user_id).all()
+        
+        for membership in group_memberships:
+            group = membership.group
+            members = GroupMember.query.filter_by(group_id=group.id).all()
+            
+            # Calculate total balance
+            total_balance = calculate_group_balance(group.id)
+            
+            # Get recent members for avatars
+            recent_members = []
+            for member in members[:5]:
+                recent_members.append({
+                    'username': member.user.username,
+                    'avatar': f'https://ui-avatars.com/api/?name={member.user.username}&background=random'
+                })
+            
+            groups_data.append({
+                'id': group.id,
+                'name': group.name,
+                'description': group.description,
+                'group_code': group.group_code,
+                'role': membership.role,  # 'admin' or 'member'
+                'total_balance': total_balance,
+                'member_count': len(members),
+                'transaction_count': len(group.transactions),
+                'recent_members': recent_members,
+                'created_at': group.created_at,
+                'joined_at': membership.joined_at
+            })
+        
+        # 2. Get user's pending join requests from JoinRequest table
+        pending_requests = JoinRequest.query.filter_by(
+            user_id=current_user.user_id,
+            status='pending'
+        ).all()
+        
+        for request in pending_requests:
+            group = request.group
+            
+            # Get group members count (only from GroupMember table - accepted members)
+            members = GroupMember.query.filter_by(group_id=group.id).all()
+            
+            # Calculate total balance
+            total_balance = calculate_group_balance(group.id)
+            
+            # Get recent members for avatars
+            recent_members = []
+            for member in members[:5]:
+                recent_members.append({
+                    'username': member.user.username,
+                    'avatar': f'https://ui-avatars.com/api/?name={member.user.username}&background=random'
+                })
+            
+            groups_data.append({
+                'id': group.id,
+                'name': group.name,
+                'description': group.description,
+                'group_code': group.group_code,
+                'role': 'pending',  # Special role for pending requests
+                'total_balance': total_balance,
+                'member_count': len(members),
+                'transaction_count': len(group.transactions),
+                'recent_members': recent_members,
+                'created_at': group.created_at,
+                'request_date': request.created_at,
+                'request_message': request.message
+            })
+        
+        return render_template('groups.html', 
+                             groups=groups_data, 
+                             current_user=current_user)
+        
+    except Exception as e:
+        app.logger.error(f"Error in groups page: {str(e)}")
+        return render_template('error.html', message="Error loading groups"), 500
+
+@groups_bp.route('/api/groups/cancel-request/<int:group_id>', methods=['POST'])
+@login_required
+def cancel_join_request(group_id):
+    """Cancel a pending join request"""
+    try:
+        # Find the pending request
+        join_request = JoinRequest.query.filter_by(
+            user_id=current_user.user_id,
+            group_id=group_id,
+            status='pending'
+        ).first()
+        
+        if not join_request:
+            return jsonify({'success': False, 'message': 'Join request not found'}), 404
+        
+        # Delete the request
+        db.session.delete(join_request)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Join request cancelled successfully'})
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error cancelling join request: {str(e)}")
+        return jsonify({'success': False, 'message': 'Error cancelling request'}), 500
+
+@groups_bp.route('/group/<int:group_id>', methods=['GET'])
+@login_required
+def group_detail_page(group_id):
+    """Render the group detail page"""
+    try:
+        # Check if user is member of this group
+        membership = GroupMember.query.filter_by(
+            group_id=group_id, 
+            user_id=current_user.user_id
+        ).first()
+        
+        if not membership:
+            return redirect(url_for('groups.groups_page'))
+        
+        group = Group.query.get_or_404(group_id)
+        
+        # Get group members with balances
+        members = []
+        balances = calculate_member_balances(group_id)
+        
+        for member in group.members:
+            member_data = {
+                'id': member.user_id,
+                'username': member.user.username,
+                'role': member.role,
+                'balance': balances.get(member.user_id, 0),
+                'avatar': f'https://ui-avatars.com/api/?name={member.user.username}&background=random'
+            }
+            members.append(member_data)
+        
+        # Get recent transactions
+        transactions = []
+
+        for transaction in (
+            GroupTransaction.query
+            .filter_by(group_id=group.id)
+            .order_by(GroupTransaction.created_at.desc())
+            .limit(10)
+            .all()
+        ):
+            splits = TransactionSplit.query.filter_by(transaction_id=transaction.id).all()
+            split_users = [split.user.username for split in splits]
+
+            transactions.append({
+                'id': transaction.id,
+                'description': transaction.description,
+                'amount': transaction.amount,
+                'category': transaction.category,
+                'paid_by': transaction.payer.username,
+                'split_among': split_users,
+                'date': transaction.created_at
+            })
+  
+        # Get pending settlements for current user
+        settlements = []
+        user_splits = TransactionSplit.query\
+            .join(GroupTransaction, TransactionSplit.transaction_id == GroupTransaction.id)\
+            .filter(
+                GroupTransaction.group_id == group_id,
+                TransactionSplit.user_id == current_user.user_id,
+                TransactionSplit.settled == False
+            ).all()
+        
+        for split in user_splits:
+            transaction = split.transaction
+            if transaction.paid_by != current_user.user_id:
+                settlements.append({
+                    'id': split.id,
+                    'from_user': current_user.username,
+                    'to_user': transaction.payer.username,
+                    'amount': split.amount,
+                    'reason': f"For: {transaction.description}"
+                })
+        
+        # Get join requests (if admin)
+        join_requests = []
+        if membership.role == 'admin':
+            requests = JoinRequest.query.filter_by(
+                group_id=group_id, 
+                status='pending'
+            ).all()
+            
+            for req in requests:
+                join_requests.append({
+                    'id': req.id,
+                    'user_id': req.user_id,
+                    'username': req.user.username,
+                    'message': req.message,
+                    'created_at': req.created_at.strftime('%Y-%m-%d')
+                })
+        
+        return render_template('group_detail.html',
+                             group=group,
+                             members=members,
+                             transactions=transactions,
+                             settlements=settlements,
+                             join_requests=join_requests,
+                             user_role=membership.role,
+                             current_user=current_user)
+        
+    except Exception as e:
+        app.logger.error(f"Error in group detail: {str(e)}")
+        return render_template('error.html', message="Error loading group"), 500
+
+# API Routes for Groups
+@groups_bp.route('/api/groups/create', methods=['POST'])
+@login_required
+def create_group():
+    """Create a new group"""
+    try:
+        data = request.get_json()
+        
+        required_fields = ['name']
+        if not all(field in data for field in required_fields):
+            return jsonify({'success': False, 'message': 'Group name is required'}), 400
+        
+        # Generate unique group code
+        while True:
+            group_code = generate_group_code()
+            if not Group.query.filter_by(group_code=group_code).first():
+                break
+        
+        # Create group
+        group = Group(
+            name=data['name'],
+            description=data.get('description', ''),
+            group_code=group_code,
+            currency=data.get('currency', 'INR'),
+            group_type=data.get('type', 'friends'),
+            is_private=data.get('is_private', True),
+            created_by=current_user.user_id
+        )
+        
+        db.session.add(group)
+        db.session.flush()
+        
+        # Add creator as admin
+        group_member = GroupMember(
+            group_id=group.id,
+            user_id=current_user.user_id,
+            role='admin'
+        )
+        db.session.add(group_member)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'group_id': group.id,
+            'group_code': group_code,
+            'message': 'Group created successfully'
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Create group error: {str(e)}")
+        return jsonify({'success': False, 'message': 'Failed to create group'}), 500
+
+@groups_bp.route('/api/groups/join', methods=['POST'])
+@login_required
+def join_group():
+    """Request to join a group"""
+    try:
+        data = request.get_json()
+        group_code = data.get('group_code', '').strip().upper()
+        
+        if not group_code:
+            return jsonify({'success': False, 'message': 'Group code is required'}), 400
+        
+        # Find group by code
+        group = Group.query.filter_by(group_code=group_code).first()
+        if not group:
+            return jsonify({'success': False, 'message': 'Group not found'}), 404
+        
+        # Check if already a member
+        existing_member = GroupMember.query.filter_by(
+            group_id=group.id, 
+            user_id=current_user.user_id
+        ).first()
+        
+        if existing_member:
+            return jsonify({'success': False, 'message': 'Already a member of this group'}), 400
+        
+        # Check if already requested
+        existing_request = JoinRequest.query.filter_by(
+            group_id=group.id,
+            user_id=current_user.user_id,
+            status='pending'
+        ).first()
+        
+        if existing_request:
+            return jsonify({'success': False, 'message': 'Join request already sent'}), 400
+        
+        if group.is_private:
+            # Create join request
+            join_request = JoinRequest(
+                group_id=group.id,
+                user_id=current_user.user_id,
+                message=data.get('message', ''),
+                status='pending'
+            )
+            db.session.add(join_request)
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Join request sent. Waiting for admin approval.'
+            })
+        else:
+            # Add directly as member
+            group_member = GroupMember(
+                group_id=group.id,
+                user_id=current_user.user_id,
+                role='member'
+            )
+            db.session.add(group_member)
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Successfully joined the group'
+            })
+            
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Join group error: {str(e)}")
+        return jsonify({'success': False, 'message': 'Failed to join group'}), 500
+
+@groups_bp.route('/api/groups/<int:group_id>/transactions', methods=['POST'])
+@login_required
+def add_group_transaction(group_id):
+    """Add a transaction to a group"""
+    try:
+        data = request.get_json()
+        
+        # Verify user is member of this group
+        membership = GroupMember.query.filter_by(
+            group_id=group_id, 
+            user_id=current_user.user_id
+        ).first()
+        
+        if not membership:
+            return jsonify({'success': False, 'message': 'Not a member of this group'}), 403
+        
+        required_fields = ['description', 'amount', 'split_type']
+        if not all(field in data for field in required_fields):
+            return jsonify({'success': False, 'message': 'Missing required fields'}), 400
+        
+        # Create transaction
+        transaction = GroupTransaction(
+            group_id=group_id,
+            paid_by=current_user.user_id,
+            description=data['description'],
+            amount=float(data['amount']),
+            category=data.get('category', 'other'),
+            split_type=data['split_type']
+        )
+        
+        db.session.add(transaction)
+        db.session.flush()
+        
+        # Get all group members
+        members = GroupMember.query.filter_by(group_id=group_id).all()
+        
+        # Create splits based on split type
+        split_type = data['split_type']
+        amount = float(data['amount'])
+        
+        if split_type == 'equal':
+            split_amount = amount / len(members)
+            for member in members:
+                split = TransactionSplit(
+                    transaction_id=transaction.id,
+                    user_id=member.user_id,
+                    amount=split_amount
+                )
+                db.session.add(split)
+        elif split_type == 'percentage':
+            # TODO: Implement percentage split
+            pass
+        elif split_type == 'custom':
+            # TODO: Implement custom split
+            pass
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Transaction added successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Add group transaction error: {str(e)}")
+        return jsonify({'success': False, 'message': 'Failed to add transaction'}), 500
+
+@groups_bp.route('/api/groups/<int:group_id>/requests', methods=['GET'])
+@login_required
+def get_group_requests(group_id):
+    """Get join requests for a group (admin only)"""
+    try:
+        # Check if user is admin
+        membership = GroupMember.query.filter_by(
+            group_id=group_id,
+            user_id=current_user.user_id,
+            role='admin'
+        ).first()
+        
+        if not membership:
+            return jsonify({'success': False, 'message': 'Not authorized'}), 403
+        
+        requests = JoinRequest.query.filter_by(
+            group_id=group_id,
+            status='pending'
+        ).all()
+        
+        requests_data = []
+        for req in requests:
+            requests_data.append({
+                'id': req.id,
+                'user_id': req.user_id,
+                'username': req.user.username,
+                'message': req.message,
+                'created_at': req.created_at.strftime('%Y-%m-%d %H:%M')
+            })
+        
+        return jsonify({
+            'success': True,
+            'requests': requests_data
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Get group requests error: {str(e)}")
+        return jsonify({'success': False, 'message': 'Failed to get requests'}), 500
+
+@groups_bp.route('/api/groups/requests/<int:request_id>/action', methods=['POST'])
+@login_required
+def handle_join_request(request_id):
+    """Accept or reject a join request"""
+    try:
+        data = request.get_json()
+        action = data.get('action')  # 'accept' or 'reject'
+        
+        if action not in ['accept', 'reject']:
+            return jsonify({'success': False, 'message': 'Invalid action'}), 400
+        
+        # Find the join request
+        join_request = JoinRequest.query.get_or_404(request_id)
+        
+        # Check if user is admin of this group
+        membership = GroupMember.query.filter_by(
+            group_id=join_request.group_id,
+            user_id=current_user.user_id,
+            role='admin'
+        ).first()
+        
+        if not membership:
+            return jsonify({'success': False, 'message': 'Not authorized'}), 403
+        
+        if action == 'accept':
+            # Add user as member
+            group_member = GroupMember(
+                group_id=join_request.group_id,
+                user_id=join_request.user_id,
+                role='member'
+            )
+            db.session.add(group_member)
+        
+        # Update request status
+        join_request.status = 'accepted' if action == 'accept' else 'rejected'
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Request {action}ed successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Handle join request error: {str(e)}")
+        return jsonify({'success': False, 'message': 'Failed to process request'}), 500
+
+@groups_bp.route('/api/groups/<int:group_id>/analytics', methods=['GET'])
+@login_required
+def get_group_analytics(group_id):
+    """Get analytics for a group"""
+    try:
+        # Verify user is member
+        membership = GroupMember.query.filter_by(
+            group_id=group_id,
+            user_id=current_user.user_id
+        ).first()
+        
+        if not membership:
+            return jsonify({'success': False, 'message': 'Not a member'}), 403
+        
+        group = Group.query.get_or_404(group_id)
+        
+        # Get category-wise spending
+        categories = defaultdict(float)
+        monthly = defaultdict(float)
+        
+        for transaction in group.transactions:
+            categories[transaction.category] += transaction.amount
+            
+            month_key = transaction.created_at.strftime('%Y-%m')
+            monthly[month_key] += transaction.amount
+        
+        # Prepare response
+        return jsonify({
+            'success': True,
+            'categories': {
+                'labels': list(categories.keys()),
+                'values': list(categories.values())
+            },
+            'monthly': {
+                'labels': sorted(monthly.keys()),
+                'values': [monthly[key] for key in sorted(monthly.keys())]
+            },
+            'members': len(group.members),
+            'total_transactions': len(group.transactions),
+            'total_balance': calculate_group_balance(group_id)
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Get group analytics error: {str(e)}")
+        return jsonify({'success': False, 'message': 'Failed to get analytics'}), 500
+
+@groups_bp.route('/api/groups/<int:group_id>/settle', methods=['POST'])
+@login_required
+def settle_transaction(group_id):
+    """Mark a transaction split as settled"""
+    try:
+        data = request.get_json()
+        split_id = data.get('split_id')
+        
+        if not split_id:
+            return jsonify({'success': False, 'message': 'Split ID is required'}), 400
+        
+        # Find the split
+        split = TransactionSplit.query.get_or_404(split_id)
+        
+        # Verify this split belongs to a transaction in this group
+        transaction = GroupTransaction.query.get(split.transaction_id)
+        if not transaction or transaction.group_id != group_id:
+            return jsonify({'success': False, 'message': 'Invalid split'}), 404
+        
+        # Verify this split belongs to the current user
+        if split.user_id != current_user.user_id:
+            return jsonify({'success': False, 'message': 'Not authorized'}), 403
+        
+        # Mark as settled
+        split.settled = True
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Settlement completed'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Settle transaction error: {str(e)}")
+        return jsonify({'success': False, 'message': 'Failed to complete settlement'}), 500
+
+@groups_bp.route('/api/groups/<int:group_id>', methods=['DELETE'])
+@login_required
+def delete_group(group_id):
+    """Delete a group (admin only)"""
+    try:
+        # Check if user is admin
+        membership = GroupMember.query.filter_by(
+            group_id=group_id,
+            user_id=current_user.user_id,
+            role='admin'
+        ).first()
+        
+        if not membership:
+            return jsonify({'success': False, 'message': 'Not authorized'}), 403
+        
+        group = Group.query.get_or_404(group_id)
+        db.session.delete(group)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Group deleted successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Delete group error: {str(e)}")
+        return jsonify({'success': False, 'message': 'Failed to delete group'}), 500
+
+@groups_bp.route('/api/groups/<int:group_id>/update', methods=['POST'])
+@login_required
+def update_group(group_id):
+    """Update an existing group"""
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        if not data.get('name') or not data.get('name').strip():
+            return jsonify({'success': False, 'message': 'Group name is required'}), 400
+        
+        # Check if group exists
+        group = Group.query.get(group_id)
+        if not group:
+            return jsonify({'success': False, 'message': 'Group not found'}), 404
+        
+        # Check if current user is admin of this group
+        membership = GroupMember.query.filter_by(
+            group_id=group_id,
+            user_id=current_user.user_id,
+            role='admin'
+        ).first()
+        
+        if not membership:
+            return jsonify({
+                'success': False, 
+                'message': 'Unauthorized: Only group admins can edit group information'
+            }), 403
+        
+        # Update group fields
+        group.name = data['name'].strip()
+        group.description = data.get('description', '').strip()
+        group.currency = data.get('currency', group.currency)
+        group.group_type = data.get('type', group.group_type)
+        group.is_private = data.get('is_private', group.is_private)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Group updated successfully',
+            'group': {
+                'id': group.id,
+                'name': group.name,
+                'description': group.description,
+                'currency': group.currency,
+                'type': group.group_type,
+                'is_private': group.is_private,
+                'code': group.group_code
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Update group error for group {group_id}: {str(e)}")
+        return jsonify({
+            'success': False, 
+            'message': 'Failed to update group'
+        }), 500
+@groups_bp.route('/api/groups/<int:group_id>/members', methods=['GET'])
+@login_required
+def get_group_members(group_id):
+    """Get all group members with their balances"""
+    try:
+        # Check if group exists
+        group = Group.query.get(group_id)
+        if not group:
+            return jsonify({'success': False, 'message': 'Group not found'}), 404
+        
+        # Check if user is admin
+        membership = GroupMember.query.filter_by(
+            group_id=group_id,
+            user_id=current_user.user_id,
+            role='admin'
+        ).first()
+        
+        if not membership:
+            return jsonify({'success': False, 'message': 'Only admins can manage members'}), 403
+        
+        # Get all members with their balances
+        members = GroupMember.query.filter_by(group_id=group_id).all()
+        
+        members_data = []
+        for member in members:
+            user = User.query.get(member.user_id)
+            
+            # Calculate user's balance in this group
+            # You might need to adjust this based on your transaction model
+            user_balance = 0  # Calculate based on your transaction logic
+            
+            members_data.append({
+                'id': member.id,  # GroupMember id
+                'user_id': member.user_id,  # User's id
+                'username': user.username,
+                'email': user.email,
+                'avatar': user.avatar if hasattr(user, 'avatar') else None,  # Handle if avatar doesn't exist
+                'role': member.role,
+                'balance': float(member.balance) if member.balance else 0.0,  # Use the balance from GroupMember
+                'joined_at': member.joined_at.isoformat() if member.joined_at else None,
+                'can_remove': member.balance == 0  # Can remove if no balance
+            })
+        
+        return jsonify({
+            'success': True,
+            'members': members_data
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Get group members error: {str(e)}")
+        return jsonify({'success': False, 'message': 'Failed to fetch members'}), 500
+
+@groups_bp.route('/api/groups/<int:group_id>/members/<int:member_id>/remove', methods=['POST'])
+@login_required
+def remove_group_member(group_id, member_id):
+    """Remove a member from group (if no pending settlements)"""
+    try:
+        # Check if group exists
+        group = Group.query.get(group_id)
+        if not group:
+            return jsonify({'success': False, 'message': 'Group not found'}), 404
+        
+        # Check if user is admin
+        admin_membership = GroupMember.query.filter_by(
+            group_id=group_id,
+            user_id=current_user.user_id,
+            role='admin'
+        ).first()
+        
+        if not admin_membership:
+            return jsonify({'success': False, 'message': 'Only admins can remove members'}), 403
+        
+        # Check if member exists
+        member = GroupMember.query.get(member_id)
+        if not member or member.group_id != group_id:
+            return jsonify({'success': False, 'message': 'Member not found in this group'}), 404
+        
+        # Don't allow removing yourself (admin)
+        if member.user_id == current_user.user_id:
+            return jsonify({'success': False, 'message': 'You cannot remove yourself as admin'}), 400
+        
+        # Check if member has pending settlements
+        # You need to implement this based on your transaction/settlement model
+        has_settlements = False  # Replace with actual logic
+        
+        if has_settlements:
+            return jsonify({
+                'success': False, 
+                'message': 'Cannot remove member with pending settlements'
+            }), 400
+        
+        # Remove member from group
+        db.session.delete(member)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Member removed successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Remove member error: {str(e)}")
+        return jsonify({'success': False, 'message': 'Failed to remove member'}), 500
+
+@groups_bp.route('/api/groups/<int:group_id>/members/<int:member_id>/role', methods=['POST'])
+@login_required
+def change_member_role(group_id, member_id):
+    """Change member role (promote/demote)"""
+    try:
+        data = request.get_json()
+        new_role = data.get('role')
+        
+        if new_role not in ['admin', 'member']:
+            return jsonify({'success': False, 'message': 'Invalid role'}), 400
+        
+        # Check if group exists
+        group = Group.query.get(group_id)
+        if not group:
+            return jsonify({'success': False, 'message': 'Group not found'}), 404
+        
+        # Check if user is admin
+        admin_membership = GroupMember.query.filter_by(
+            group_id=group_id,
+            user_id=current_user.user_id,
+            role='admin'
+        ).first()
+        
+        if not admin_membership:
+            return jsonify({'success': False, 'message': 'Only admins can change roles'}), 403
+        
+        # Check if member exists
+        member = GroupMember.query.get(member_id)
+        if not member or member.group_id != group_id:
+            return jsonify({'success': False, 'message': 'Member not found in this group'}), 404
+        
+        # Don't allow changing your own role if you're the only admin
+        if member.user_id == current_user.user_id:
+            admin_count = GroupMember.query.filter_by(
+                group_id=group_id,
+                role='admin'
+            ).count()
+            
+            if admin_count <= 1:
+                return jsonify({
+                    'success': False, 
+                    'message': 'Cannot change your own role - you are the only admin'
+                }), 400
+        
+        # Update role
+        member.role = new_role
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Member role changed to {new_role}'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Change role error: {str(e)}")
+        return jsonify({'success': False, 'message': 'Failed to change role'}), 500
+def check_member_has_settlements(group_id, user_id):
+    """
+    Check if a member has pending settlements in the group.
+    Returns True if member has pending settlements, False otherwise.
+    """
+    # This depends on your transaction/settlement model
+    # Here's a sample implementation:
+    
+    # 1. Check if member owes money to others
+    settlements = Settlement.query.filter_by(
+        group_id=group_id,
+        from_user_id=user_id,
+        status='pending'
+    ).all()
+    
+    if settlements:
+        return True
+    
+    # 2. Check if others owe money to member
+    settlements_owed = Settlement.query.filter_by(
+        group_id=group_id,
+        to_user_id=user_id,
+        status='pending'
+    ).all()
+    
+    if settlements_owed:
+        return True
+    
+    # 3. Check for any uncleared transactions
+    # (Implement based on your transaction model)
+    
+    return False
+
 @app.route('/forgot-password')
 def forgot_password():
     return render_template('forgot-password.html')
@@ -1570,6 +2547,7 @@ def forgot_password():
 # Register the blueprint with the app
 app.register_blueprint(savings_bp, url_prefix='/api')
 app.register_blueprint(transactions_bp, url_prefix='/api')
+app.register_blueprint(groups_bp) 
 
 if __name__ == "__main__":
     initialize_database()
