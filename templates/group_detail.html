@@ -1798,11 +1798,10 @@
                 <i class="fas fa-cog"></i>
                 <span>Settings</span>
             </a>
-             <div class="sidebar-footer">
-            <a href="/logout" class="menu-item logout-btn">
-                <i class="fas fa-sign-out-alt"></i>
-                <span>Log Out</span>
-            </a>
+            <div class="sidebar-footer">
+            <button class="menu-item" id="logoutBtn">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
         </div>
         </div>
     </div> 
@@ -2629,6 +2628,7 @@
         // 2. Load Group Members Function
         async function loadGroupMembers() {
             const groupId = '{{ group.id }}';
+            const membersList = document.getElementById('membersList');
             
             try {
                 membersList.innerHTML = `
@@ -2638,23 +2638,17 @@
                     </div>
                 `;
                 
-                const response = await fetch(`/api/groups/${groupId}/members`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                });
-                
+                const response = await fetch(`/api/groups/${groupId}/members`);
                 const result = await response.json();
                 
-                if (result.success) {
+                if (result.success && result.members) {
                     displayMembers(result.members);
                 } else {
                     membersList.innerHTML = `
                         <div class="no-members">
                             <i class="fas fa-exclamation-circle"></i>
                             <h3>Failed to Load Members</h3>
-                            <p>${result.message || 'Please try again later'}</p>
+                            <p>${result.message || 'No members found'}</p>
                         </div>
                     `;
                 }
@@ -2663,11 +2657,38 @@
                 membersList.innerHTML = `
                     <div class="no-members">
                         <i class="fas fa-exclamation-triangle"></i>
-                        <h3>Network Error</h3>
-                        <p>Failed to load members. Please check your connection.</p>
+                        <h3>Error Loading Members</h3>
+                        <p>Please try again</p>
                     </div>
                 `;
             }
+        }
+        // Add this after loading the members
+        function attachMemberEventListeners() {
+            // Manage buttons
+            document.querySelectorAll('.manage-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const memberId = this.dataset.memberId;
+                    const username = this.dataset.username;
+                    const userId = parseInt(this.dataset.userId);
+                    const role = this.dataset.role;
+                    const balance = parseFloat(this.dataset.balance);
+                    const canRemove = this.dataset.canRemove === 'true';
+                    
+                    showMemberActions(memberId, username, userId, role, balance, canRemove);
+                });
+            });
+            
+            // Remove buttons
+            document.querySelectorAll('.remove-btn:not(:disabled)').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const memberId = this.dataset.memberId;
+                    const username = this.dataset.username;
+                    const balance = parseFloat(this.dataset.balance);
+                    
+                    confirmRemoveMember(memberId, username, balance);
+                });
+            });
         }
 
         // 3. Display Members Function
@@ -2899,6 +2920,7 @@
             }
         });
 
+        // Add this to your existing modal handlers
         document.getElementById('memberActionsModal')?.addEventListener('click', (e) => {
             if (e.target === document.getElementById('memberActionsModal')) {
                 document.getElementById('memberActionsModal').classList.remove('active');
