@@ -2347,23 +2347,22 @@ def update_group(group_id):
         }), 500
 @groups_bp.route('/api/groups/<int:group_id>/members', methods=['GET'])
 @login_required
-def get_group_members(group_id):
-    """Get all group members with their balances"""
+def get_group_members_api(group_id):
+    """API endpoint to get group members with their balances"""
     try:
         # Check if group exists
         group = Group.query.get(group_id)
         if not group:
             return jsonify({'success': False, 'message': 'Group not found'}), 404
         
-        # Check if user is admin
+        # Check if user is member of this group
         membership = GroupMember.query.filter_by(
             group_id=group_id,
-            user_id=current_user.user_id,
-            role='admin'
+            user_id=current_user.user_id
         ).first()
         
         if not membership:
-            return jsonify({'success': False, 'message': 'Only admins can manage members'}), 403
+            return jsonify({'success': False, 'message': 'Not a member of this group'}), 403
         
         # Get all members with their balances
         members = GroupMember.query.filter_by(group_id=group_id).all()
@@ -2372,20 +2371,19 @@ def get_group_members(group_id):
         for member in members:
             user = User.query.get(member.user_id)
             
-            # Calculate user's balance in this group
-            # You might need to adjust this based on your transaction model
-            user_balance = 0  # Calculate based on your transaction logic
+            # Calculate user's balance
+            user_balance = 0
             
             members_data.append({
                 'id': member.id,  # GroupMember id
-                'user_id': member.user_id,  # User's id
+                'user_id': member.user_id,
                 'username': user.username,
                 'email': user.email,
-                'avatar': user.avatar if hasattr(user, 'avatar') else None,  # Handle if avatar doesn't exist
                 'role': member.role,
-                'balance': float(member.balance) if member.balance else 0.0,  # Use the balance from GroupMember
+                'balance': float(user_balance),
+                'avatar': f'https://ui-avatars.com/api/?name={user.username}&background=random',
                 'joined_at': member.joined_at.isoformat() if member.joined_at else None,
-                'can_remove': member.balance == 0  # Can remove if no balance
+                'can_remove': user_balance == 0  # Can remove if balance is 0
             })
         
         return jsonify({
@@ -2394,7 +2392,7 @@ def get_group_members(group_id):
         })
         
     except Exception as e:
-        app.logger.error(f"Get group members error: {str(e)}")
+        app.logger.error(f"Get group members API error: {str(e)}")
         return jsonify({'success': False, 'message': 'Failed to fetch members'}), 500
 
 @groups_bp.route('/api/groups/<int:group_id>/members/<int:member_id>/remove', methods=['POST'])
